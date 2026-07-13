@@ -1,0 +1,53 @@
+#include <stdlib.h>
+#include <string.h>
+
+int findMaximumXOR(int* nums, int numsSize) {
+    int globalMaxXOR = 0;
+    int mask = 0;
+    
+    int hashSize = numsSize * 2;
+    int* hashTable = (int*)malloc(hashSize * sizeof(int));
+    int* flagTable = (int*)calloc(hashSize, sizeof(int));
+    int* insertedBuckets = (int*)malloc(numsSize * sizeof(int));
+    for (int i = 30; i >= 0; i--) {
+        mask |= (1 << i);
+        int insertedCount = 0;
+        for (int j = 0; j < numsSize; j++) {
+            int prefix = nums[j] & mask;
+            unsigned int bucket = ((unsigned int)prefix) % hashSize;
+            while (flagTable[bucket] == 1 && hashTable[bucket] != prefix) {
+                bucket = (bucket + 1) % hashSize;
+            }
+            if (flagTable[bucket] == 0) {
+                flagTable[bucket] = 1;
+                hashTable[bucket] = prefix;
+                insertedBuckets[insertedCount++] = bucket;
+            }
+        }
+        int greedyTry = globalMaxXOR | (1 << i);
+        for (int j = 0; j < numsSize; j++) {
+            int prefix = nums[j] & mask;
+            int target = prefix ^ greedyTry;
+            
+            unsigned int bucket = ((unsigned int)target) % hashSize;
+            while (flagTable[bucket] == 1) {
+                if (hashTable[bucket] == target) {
+                    globalMaxXOR = greedyTry;
+                    goto guess_found;         
+                }
+                bucket = (bucket + 1) % hashSize;
+            }
+        }
+        
+        guess_found:
+        for (int j = 0; j < insertedCount; j++) {
+            flagTable[insertedBuckets[j]] = 0;
+        }
+    }
+
+    free(hashTable);
+    free(flagTable);
+    free(insertedBuckets);
+    
+    return globalMaxXOR;
+}
