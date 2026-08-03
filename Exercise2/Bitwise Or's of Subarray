@@ -1,0 +1,54 @@
+#include <stdlib.h>
+int compareInts(const void* a, const void* b) {
+    int arg1 = *(const int*)a;
+    int arg2 = *(const int*)b;
+    if (arg1 < arg2) return -1;
+    if (arg1 > arg2) return 1;
+    return 0;
+}
+
+int subarrayBitwiseORs(int* arr, int arrSize) {
+    int maxTotalResults = arrSize * 32;
+    int* allResults = (int*)malloc(maxTotalResults * sizeof(int));
+    int totalCount = 0;
+    int prevORs[32];
+    int currORs[32];
+    int prevSize = 0;
+
+    for (int i = 0; i < arrSize; i++) {
+        int currSize = 0;
+        currORs[currSize++] = arr[i];
+        for (int j = 0; j < prevSize; j++) {
+            int newOR = prevORs[j] | arr[i];
+            int isDuplicate = 0;
+            for (int k = 0; k < currSize; k++) {
+                if (currORs[k] == newOR) {
+                    isDuplicate = 1;
+                    break;
+                }
+            }
+            if (!isDuplicate) {
+                currORs[currSize++] = newOR;
+            }
+        }
+        for (int j = 0; j < currSize; j++) {
+            allResults[totalCount++] = currORs[j];
+            prevORs[j] = currORs[j]; 
+        }
+        prevSize = currSize;
+    }
+
+    qsort(allResults, totalCount, sizeof(int), compareInts);
+    int uniqueCount = 0;
+    if (totalCount > 0) {
+        uniqueCount = 1; 
+        for (int i = 1; i < totalCount; i++) {
+            if (allResults[i] != allResults[i - 1]) {
+                uniqueCount++;
+            }
+        }
+    }
+    free(allResults);
+
+    return uniqueCount;
+}
