@@ -1,0 +1,217 @@
+#include <stdio.h>
+#include <string.h>
+
+char textInput[100];
+char data[800] = "";
+char divisor[30];
+char dividend[1000], remainders[1000];
+char transmitted[1000], received[1000];
+
+int main()
+{
+    int dataLen, divLen;
+    int i, j;
+    char choice;
+
+    printf("\n========== CRC ERROR DETECTION (8-BIT FRAMING) ==========\n");
+
+    printf("Enter Text Data : ");
+    fgets(textInput, sizeof(textInput), stdin);
+    textInput[strcspn(textInput, "\n")] = '\0';
+
+    printf("Enter Generator Polynomial (Binary) : ");
+    scanf("%s", divisor);
+
+    // ---------------- Text to Binary Stream Conversion ----------------
+    int textLen = strlen(textInput);
+    int dataIdx = 0;
+
+    for(i = 0; i < textLen; i++)
+    {
+        for(j = 7; j >= 0; j--)
+        {
+            if ((textInput[i] >> j) & 1)
+                data[dataIdx++] = '1';
+            else
+                data[dataIdx++] = '0';
+        }
+    }
+    data[dataIdx] = '\0';
+
+    dataLen = strlen(data);
+    divLen = strlen(divisor);
+
+    // ---------------- Display Separated 8-Bit Frames ----------------
+    printf("\n--- Separated 8-Bit Frames ---\n");
+    for(i = 0; i < textLen; i++)
+    {
+        printf("Frame %d ('%c') : ", i + 1, textInput[i]);
+        for(j = 0; j < 8; j++)
+        {
+            printf("%c", data[i * 8 + j]);
+        }
+        printf("\n");
+    }
+    printf("-------------------------------\n");
+
+    // Validate generator polynomial binary format
+    for(i = 0; i < divLen; i++)
+    {
+        if(divisor[i] != '0' && divisor[i] != '1')
+        {
+            printf("\nInvalid Generator Polynomial.\n");
+            return 0;
+        }
+    }
+
+    // ---------------- Sender Side (CRC Generation) ----------------
+    strcpy(dividend, data);
+
+    for(i = 0; i < divLen - 1; i++)
+        dividend[dataLen + i] = '0';
+
+    dividend[dataLen + divLen - 1] = '\0';
+
+    strcpy(remainders, dividend);
+
+    // Corrected fixed-bound division loop
+    for(i = 0; i < dataLen; i++)
+    {
+        if(remainders[i] == '1')
+        {
+            for(j = 0; j < divLen; j++)
+            {
+                if(remainders[i + j] == divisor[j])
+                    remainders[i + j] = '0';
+                else
+                    remainders[i + j] = '1';
+            }
+        }
+    }
+
+    strcpy(transmitted, data);
+
+    printf("\nCRC Bits : ");
+    int crcIdx = 0;
+    for(i = 0; i < divLen - 1; i++)
+    {
+        transmitted[dataLen + i] = remainders[dataLen + i];
+        printf("%c", remainders[dataLen + i]);
+    }
+    transmitted[dataLen + divLen - 1] = '\0';
+
+    printf("\nTransmitted Frame : %s\n", transmitted);
+
+    // ---------------- Receiver Side (Multi-bit Error Injection) ----------------
+    strcpy(received, transmitted);
+
+    printf("\nSimulate Error? (Y/N): ");
+    scanf(" %c", &choice);
+
+    if(choice == 'Y' || choice == 'y')
+    {
+        int numErrors, totalBits;
+        totalBits = strlen(received);
+
+        printf("How many bits do you want to flip? (1-%d): ", totalBits);
+        scanf("%d", &numErrors);
+
+        if(numErrors >= 1 && numErrors <= totalBits)
+        {
+            for(i = 0; i < numErrors; i++)
+            {
+                int pos;
+                printf("Enter Position for Error %d (1-%d): ", i + 1, totalBits);
+                scanf("%d", &pos);
+
+                if(pos >= 1 && pos <= totalBits)
+                {
+                    if(received[pos - 1] == '0')
+                        received[pos - 1] = '1';
+                    else
+                        received[pos - 1] = '0';
+
+                    printf("Bit at position %d flipped.\n", pos);
+                }
+                else
+                {
+                    printf("Invalid Position! Skipping this bit iteration.\n");
+                    i--; // Redo this iteration step to get a valid entry
+                }
+            }
+            printf("\nMulti-bit Error Simulation Completed.\n");
+        }
+        else
+        {
+            printf("Invalid number of bits requested.\n");
+            return 0;
+        }
+    }
+
+    printf("\nReceived Frame : %s\n", received);
+
+    // ---------------- Receiver Verification Check ----------------
+    strcpy(remainders, received);
+
+    // Loop must precisely traverse through the core data segment
+    for(i = 0; i < dataLen; i++)
+    {
+        if(remainders[i] == '1')
+        {
+            for(j = 0; j < divLen; j++)
+            {
+                if(remainders[i + j] == divisor[j])
+                    remainders[i + j] = '0';
+                else
+                    remainders[i + j] = '1';
+            }
+        }
+    }
+
+    int error = 0;
+    // Remainder resides exclusively in the appended parity bit positions
+    for(i = dataLen; i < dataLen + divLen - 1; i++)
+    {
+        if(remainders[i] != '0')
+        {
+            error = 1;
+            break;
+        }
+    }
+
+    // ---------------- Final Result Interpretation ----------------
+    if(error)
+    {
+        printf("\nRemainder: ");
+        for(i = dataLen; i < dataLen + divLen - 1; i++)
+            printf("%c", remainders[i]);
+
+        printf("\nSyndrome is equal to one\n");
+        printf("\nResult : ERROR DETECTED");
+        printf("\nMessage Discarded\n");
+    }
+    else
+    {
+        printf("\nRemainder : ");
+        for(i = dataLen; i < dataLen + divLen - 1; i++)
+            printf("%c", remainders[i]);
+
+        printf("\nSyndrome is equal to zero\n");
+        printf("\nResult : NO ERROR DETECTED");
+
+        // ---------------- Binary back to Original Text Character Assembly ----------------
+        printf("\nExtracted Text Message : ");
+        for(i = 0; i < dataLen; i += 8)
+        {
+            char ch = 0;
+            for(j = 0; j < 8; j++)
+            {
+                ch = (ch << 1) | (received[i + j] - '0');
+            }
+            printf("%c", ch);
+        }
+        printf("\n");
+    }
+
+    return 0;
+}
