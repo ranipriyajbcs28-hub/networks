@@ -1,0 +1,71 @@
+#include <stdlib.h>
+#include <stdbool.h>
+
+
+typedef struct {
+    int to;
+    bool is_outward; 
+} Edge;
+
+typedef struct {
+    Edge *edges;
+    int count;
+    int capacity;
+} Node;
+
+void add_edge(Node *graph, int from, int to, bool is_outward) {
+    if (graph[from].count >= graph[from].capacity) {
+        graph[from].capacity = graph[from].capacity == 0 ? 4 : graph[from].capacity * 2;
+        graph[from].edges = (Edge *)realloc(graph[from].edges, graph[from].capacity * sizeof(Edge));
+    }
+    graph[from].edges[graph[from].count].to = to;
+    graph[from].edges[graph[from].count].is_outward = is_outward;
+    graph[from].count++;
+}
+
+int minReorder(int n, int** connections, int connectionsSize, int* connectionsColSize) {
+    Node *graph = (Node *)calloc(n, sizeof(Node));
+    for (int i = 0; i < connectionsSize; i++) {
+        int u = connections[i][0];
+        int v = connections[i][1];
+        
+        add_edge(graph, u, v, true);
+        add_edge(graph, v, u, false);
+    }
+
+    int *queue = (int *)malloc(n * sizeof(int));
+    bool *visited = (bool *)calloc(n, sizeof(bool));
+    int head = 0, tail = 0;
+    int flip_count = 0;
+    queue[tail++] = 0;
+    visited[0] = true;
+
+    while (head < tail) {
+        int curr = queue[head++];
+
+        for (int i = 0; i < graph[curr].count; i++) {
+            Edge neighbor = graph[curr].edges[i];
+
+            if (!visited[neighbor.to]) {
+                visited[neighbor.to] = true;
+                
+                if (neighbor.is_outward) {
+                    flip_count++;
+                }
+                
+                queue[tail++] = neighbor.to;
+            }
+        }
+    }
+
+    for (int i = 0; i < n; i++) {
+        if (graph[i].edges) {
+            free(graph[i].edges);
+        }
+    }
+    free(graph);
+    free(queue);
+    free(visited);
+
+    return flip_count;
+}
