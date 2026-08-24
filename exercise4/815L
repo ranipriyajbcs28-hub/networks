@@ -1,0 +1,81 @@
+#include <stdlib.h>
+#include <stdbool.h>
+
+#define MAX_STOPS 1000000
+
+typedef struct {
+    int *buses;
+    int count;
+    int capacity;
+} StopToBuses;
+
+void add_bus_to_stop(StopToBuses *stopMap, int stop, int busId) {
+    if (stopMap[stop].count >= stopMap[stop].capacity) {
+        stopMap[stop].capacity = stopMap[stop].capacity == 0 ? 4 : stopMap[stop].capacity * 2;
+        stopMap[stop].buses = (int *)realloc(stopMap[stop].buses, stopMap[stop].capacity * sizeof(int));
+    }
+    stopMap[stop].buses[stopMap[stop].count++] = busId;
+}
+
+int numBusesToDestination(int** routes, int routesSize, int* routesColSize, int source, int target) {
+    if (source == target) return 0;
+
+    StopToBuses *stopMap = (StopToBuses *)calloc(MAX_STOPS, sizeof(StopToBuses));
+    
+    for (int i = 0; i < routesSize; i++) {
+        for (int j = 0; j < routesColSize[i]; j++) {
+            add_bus_to_stop(stopMap, routes[i][j], i);
+        }
+    }
+
+    bool *visitedBuses = (bool *)calloc(routesSize, sizeof(bool));
+    bool *visitedStops = (bool *)calloc(MAX_STOPS, sizeof(bool));
+
+    int *queue = (int *)malloc(MAX_STOPS * sizeof(int));
+    int head = 0, tail = 0;
+    queue[tail++] = source;
+    visitedStops[source] = true;
+
+    int busCount = 0;
+
+ 
+    while (head < tail) {
+        int levelSize = tail - head;
+        busCount++;
+        for (int i = 0; i < levelSize; i++) {
+            int currentStop = queue[head++];
+
+            int numBuses = stopMap[currentStop].count;
+            for (int b = 0; b < numBuses; b++) {
+                int busId = stopMap[currentStop].buses[b];
+
+                if (visitedBuses[busId]) continue;
+                visitedBuses[busId] = true;
+
+                for (int s = 0; s < routesColSize[busId]; s++) {
+                    int routeStop = routes[busId][s];
+
+                    if (routeStop == target) {
+                        for (int k = 0; k < MAX_STOPS; k++) {
+                            if (stopMap[k].buses) free(stopMap[k].buses);
+                        }
+                        free(stopMap); free(visitedBuses); free(visitedStops); free(queue);
+                        return busCount;
+                    }
+
+                    if (!visitedStops[routeStop]) {
+                        visitedStops[routeStop] = true;
+                        queue[tail++] = routeStop;
+                    }
+                }
+            }
+        }
+    }
+
+    for (int k = 0; k < MAX_STOPS; k++) {
+        if (stopMap[k].buses) free(stopMap[k].buses);
+    }
+    free(stopMap); free(visitedBuses); free(visitedStops); free(queue);
+
+    return -1;
+}
