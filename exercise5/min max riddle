@@ -1,0 +1,58 @@
+#include <vector>
+#include <stack>
+#include <algorithm>
+#include <iostream>
+
+using namespace std;
+
+vector<long> riddle(vector<long> arr) {
+    int n = arr.size();
+    
+    // Arrays to store indices of the next smaller elements
+    vector<int> left(n, -1);
+    vector<int> right(n, n);
+    stack<int> s;
+
+    // 1. Find the first smaller element to the left for each item
+    for (int i = 0; i < n; i++) {
+        while (!s.empty() && arr[s.top()] >= arr[i]) {
+            s.pop();
+        }
+        if (!s.empty()) {
+            left[i] = s.top();
+        }
+        s.push(i);
+    }
+
+    // Clear stack to reuse it
+    while (!s.empty()) s.pop();
+
+    // 2. Find the first smaller element to the right for each item
+    for (int i = n - 1; i >= 0; i--) {
+        while (!s.empty() && arr[s.top()] >= arr[i]) {
+            s.pop();
+        }
+        if (!s.empty()) {
+            right[i] = s.top();
+        }
+        s.push(i);
+    }
+
+    // 3. Map window sizes to their maximum minimum values
+    // res[x] will temporarily hold the max min value for a window of size x
+    vector<long> res(n + 1, 0);
+    for (int i = 0; i < n; i++) {
+        int len = right[i] - left[i] - 1;
+        res[len] = max(res[len], arr[i]);
+    }
+
+    // 4. Fill in missing window entries
+    // A maximum minimum for a larger window size 'x' is valid for a smaller window size 'x-1'
+    for (int i = n - 1; i >= 1; i--) {
+        res[i] = max(res[i], res[i + 1]);
+    }
+
+    // Remove the 0-th index placeholder and return sizes 1 to n
+    vector<long> ans(res.begin() + 1, res.end());
+    return ans;
+}
