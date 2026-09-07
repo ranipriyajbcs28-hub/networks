@@ -1,0 +1,188 @@
+#include <stdio.h>
+#include <stdlib.h>
+#define HASH_SIZE 20011
+
+typedef struct HashNode {
+    long long key;
+    int count;
+    struct HashNode* next;
+} HashNode;
+
+HashNode* hashTable[HASH_SIZE];
+
+void hashInsert(long long key) {
+    int idx = abs((int)(key % HASH_SIZE));
+    HashNode* curr = hashTable[idx];
+    while (curr) {
+        if (curr->key == key) {
+            curr->count++;
+            return;
+        }
+        curr = curr->next;
+    }
+    HashNode* node = (HashNode*)malloc(sizeof(HashNode));
+    node->key = key;
+    node->count = 1;
+    node->next = hashTable[idx];
+    hashTable[idx] = node;
+}
+
+int hashGetAndDecrement(long long key) {
+    int idx = abs((int)(key % HASH_SIZE));
+    HashNode* curr = hashTable[idx];
+    while (curr) {
+        if (curr->key == key && curr->count > 0) {
+            curr->count--;
+            return 1;
+        }
+        curr = curr->next;
+    }
+    return 0;
+}
+
+void clearHash() {
+    for (int i = 0; i < HASH_SIZE; i++) {
+        HashNode* curr = hashTable[i];
+        while (curr) {
+            HashNode* tmp = curr;
+            curr = curr->next;
+            free(tmp);
+        }
+        hashTable[i] = NULL;
+    }
+}
+long long maxHeap[100005];
+int maxHeapSize = 0;
+
+void pushMax(long long val) {
+    maxHeap[maxHeapSize] = val;
+    int curr = maxHeapSize++;
+    while (curr > 0) {
+        int p = (curr - 1) / 2;
+        if (maxHeap[p] >= maxHeap[curr]) break;
+        long long tmp = maxHeap[p]; maxHeap[p] = maxHeap[curr]; maxHeap[curr] = tmp;
+        curr = p;
+    }
+}
+
+void popMax() {
+    if (maxHeapSize == 0) return;
+    maxHeap[0] = maxHeap[--maxHeapSize];
+    int curr = 0;
+    while (2 * curr + 1 < maxHeapSize) {
+        int left = 2 * curr + 1;
+        int right = 2 * curr + 2;
+        int largest = left;
+        if (right < maxHeapSize && maxHeap[right] > maxHeap[left]) largest = right;
+        if (maxHeap[curr] >= maxHeap[largest]) break;
+        long long tmp = maxHeap[curr]; maxHeap[curr] = maxHeap[largest]; maxHeap[largest] = tmp;
+        curr = largest;
+    }
+}
+long long minHeap[100005];
+int minHeapSize = 0;
+
+void pushMin(long long val) {
+    minHeap[minHeapSize] = val;
+    int curr = minHeapSize++;
+    while (curr > 0) {
+        int p = (curr - 1) / 2;
+        if (minHeap[p] <= minHeap[curr]) break;
+        long long tmp = minHeap[p]; minHeap[p] = minHeap[curr]; minHeap[curr] = tmp;
+        curr = p;
+    }
+}
+
+void popMin() {
+    if (minHeapSize == 0) return;
+    minHeap[0] = minHeap[--minHeapSize];
+    int curr = 0;
+    while (2 * curr + 1 < minHeapSize) {
+        int left = 2 * curr + 1;
+        int right = 2 * curr + 2;
+        int smallest = left;
+        if (right < minHeapSize && minHeap[right] < minHeap[left]) smallest = right;
+        if (minHeap[curr] <= minHeap[smallest]) break;
+        long long tmp = minHeap[curr]; minHeap[curr] = minHeap[smallest]; minHeap[smallest] = tmp;
+        curr = smallest;
+    }
+}
+int smallSize, largeSize;
+
+void prune() {
+    while (maxHeapSize > 0 && hashGetAndDecrement(maxHeap[0])) {
+        popMax();
+    }
+    while (minHeapSize > 0 && hashGetAndDecrement(minHeap[0])) {
+        popMin();
+    }
+}
+
+void makeBalanced() {
+    if (smallSize > largeSize + 1) {
+        pushMin(maxHeap[0]);
+        popMax();
+        smallSize--;
+        largeSize++;
+        prune();
+    } else if (smallSize < largeSize) {
+        pushMax(minHeap[0]);
+        popMin();
+        smallSize++;
+        largeSize--;
+        prune();
+    }
+}
+
+void addNumber(long long num) {
+    if (smallSize == 0 || num <= maxHeap[0]) {
+        pushMax(num);
+        smallSize++;
+    } else {
+        pushMin(num);
+        largeSize++;
+    }
+    makeBalanced();
+}
+
+void removeNumber(long long num) {
+    hashInsert(num);
+    if (num <= maxHeap[0]) {
+        smallSize--;
+    } else {
+        largeSize--;
+    }
+    prune();
+    makeBalanced();
+}
+
+double getMedian(int k) {
+    if (k % 2 == 1) {
+        return (double)maxHeap[0];
+    } else {
+        return ((double)maxHeap[0] + (double)minHeap[0]) / 2.0;
+    }
+}
+double* medianSlidingWindow(int* nums, int numsSize, int k, int* returnSize) {
+    maxHeapSize = 0; minHeapSize = 0;
+    smallSize = 0; largeSize = 0;
+    clearHash();
+
+    int resSize = numsSize - k + 1;
+    double* result = (double*)malloc(resSize * sizeof(double));
+    *returnSize = resSize;
+
+    for (int i = 0; i < k; i++) {
+        addNumber(nums[i]);
+    }
+    result[0] = getMedian(k);
+
+    for (int i = k; i < numsSize; i++) {
+        addNumber(nums[i]);
+        removeNumber(nums[i - k]);
+        result[i - k + 1] = getMedian(k);
+    }
+
+    clearHash();
+    return result;
+}
